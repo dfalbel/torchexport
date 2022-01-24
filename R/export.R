@@ -20,7 +20,7 @@ export <- function(path = pkg_path()) {
     export_h <- exports_h(decls$empty_decl, decls$wrapper)
 
     readr::write_lines(export_cpp, "csrc/src/exports.cpp")
-    readr::write_lines(export_h, fs::path("csrc/include/", get_package_name(), "exports.h"))
+    readr::write_lines(export_h, fs::path("csrc/include/", tolower(get_package_name()), "exports.h"))
   })
 
   invisible(NULL)
