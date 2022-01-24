@@ -6,8 +6,8 @@
 #' @inheritParams pkgload::load_all
 #'
 #' @export
-export <- function(pkg = pkg_path()) {
-  withr::with_dir(pkg, {
+export <- function(path = pkg_path()) {
+  withr::with_dir(path, {
     decls <- get_declarations()
 
     if (nrow(decls) == 0)

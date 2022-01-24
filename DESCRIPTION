@@ -10,8 +10,11 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
 Imports: 
+    decor,
+    desc,
     fs,
     glue,
     pkgload,
     purrr,
-    readr
+    readr,
+    withr

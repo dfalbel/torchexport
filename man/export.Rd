@@ -4,7 +4,10 @@
 \alias{export}
 \title{Generates code that exports code from C++ extensions}
 \usage{
-export(pkg = pkg_path())
+export(path = pkg_path())
+}
+\arguments{
+\item{path}{Path to a package, or within a package.}
 }
 \description{
 This function is used by the CmakeList.txt file template to autogenerate
