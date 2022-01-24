@@ -1,0 +1,17 @@
+Package: torchexport
+Title: Code Generation for 'C++' Interfaces for 'torch'.
+Version: 0.0.1.9000
+Authors@R: 
+    person("Daniel", "Falbel", , "daniel@rstudio.com", role = c("aut", "cre"))
+Description: Generates code to automatically handle errors and to correctly export
+    functions when creating 'C++' extensions for torch.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+Imports: 
+    fs,
+    glue,
+    pkgload,
+    purrr,
+    readr

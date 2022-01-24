@@ -1,0 +1,64 @@
+
+exports_cpp <- function(functions) {
+  NAME <- get_package_name()
+  name <- tolower(NAME)
+  glue_code(
+'
+#include "<<name>>/exports.h"
+#include <lantern/types.h>
+void * p_<<name>>_last_error = NULL;
+
+<<NAME>>_API void* lltm_last_error()
+{
+  return p_<<name>>_last_error;
+}
+
+<<NAME>>_API void <<name>>_last_error_clear()
+{
+  p_<<name>>_last_error = NULL;
+}
+
+#ifndef <<NAME>>_HANDLE_EXCEPTION
+#define <<NAME>>_HANDLE_EXCEPTION                                  \\\\\n
+catch(const std::exception& ex) {                                  \\\\\n
+  p_<<name>>_last_error = make_raw::string(ex.what());             \\\\\n
+} catch (std::string& ex) {                                        \\\\\n
+  p_<<name>>_last_error = make_raw::string(ex);                    \\\\\n
+} catch (...) {                                                    \\\\\n
+  p_<<name>>_last_error = make_raw::string("Unknown error. ");     \\\\\n
+}
+#endif
+
+<<paste(functions, collapse = "\n")>>
+'
+  )
+}
+
+exports_h <- function(declarations, wrappers) {
+  NAME <- get_package_name()
+  name <- tolower(NAME)
+  glue_code(
+'
+#ifdef _WIN32
+#ifndef <<NAME>>_HEADERS_ONLY
+#define <<NAME>>_API extern "C" __declspec(dllexport)
+#else
+#define <<NAME>>_API extern "C" __declspec(dllimport)
+#endif
+#else
+#define <<NAME>>_API extern "C"
+#endif
+
+void host_exception_handler ();
+extern void* p_<<name>>_last_error;
+<<NAME>>_API void* <<name>>_last_error ();
+<<NAME>>_API void <<name>>_last_error_clear();
+
+<<paste(declarations, collapse = "\n")>>
+
+#ifdef RCPP_VERSION
+<<paste(wrappers, collapse = "\n")>>
+#endif // RCPP_VERSION
+'
+  )
+}
