@@ -9,7 +9,7 @@ exports_cpp <- function(functions) {
 #include <lantern/types.h>
 void * p_<<name>>_last_error = NULL;
 
-<<NAME>>_API void* lltm_last_error()
+<<NAME>>_API void* <<name>>_last_error()
 {
   return p_<<name>>_last_error;
 }
