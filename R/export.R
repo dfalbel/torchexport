@@ -82,8 +82,8 @@ make_declaration <- function(parsed, prefix = "_", macro = NULL, inline = FALSE)
 
 make_signature <- function(parsed) {
   args <- parsed$args[[1]]
-  paste(args$type, args$name) |>
-    paste(collapse = ", ")
+  args <- paste(args$type, args$name)
+  paste(args, collapse = ", ")
 }
 
 make_call <- function(parsed) {
