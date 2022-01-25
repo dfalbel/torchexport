@@ -12,13 +12,15 @@ export <- function(path = pkg_path()) {
 
     if (nrow(decls) == 0)
       return(invisible(NULL))
-
-    decls <- lapply(decls$context, generate_decls)
+    parseds <- lapply(decls$context, decor::parse_cpp_function)
+    decls <- lapply(parseds, generate_decls)
     decls <- purrr::transpose(decls)
 
     export_cpp <- exports_cpp(decls$error_handled)
     export_h <- exports_h(decls$empty_decl, decls$wrapper)
 
+
+    replace_defs(parseds)
     readr::write_lines(export_cpp, "csrc/src/exports.cpp")
     readr::write_lines(export_h, fs::path("csrc/include/", tolower(get_package_name()), "exports.h"))
   })
@@ -29,8 +31,7 @@ export <- function(path = pkg_path()) {
 pkg_path <- pkgload::pkg_path
 
 
-generate_decls <- function(context) {
-  parsed <- decor::parse_cpp_function(context)
+generate_decls <- function(parsed) {
   list(
     error_handled = make_error_handled(parsed),
     wrapper = make_wrapper(parsed),
