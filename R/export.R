@@ -69,7 +69,7 @@ make_error_handled <- function(parsed) {
   try {
     <<make_return(parsed)>> <<make_raw(parsed)>>(<<parsed$name>>(<<make_call(parsed, type = 'lantern')>>));
   } <<get_package_name()>>_HANDLE_EXCEPTION
-  <<if (make_ret_type(parsed, 'c_style') != 'void') paste('return (',make_ret_type(parsed, 'c_style'),') NULL')>>;
+  <<make_empty_value(parsed)>>
 }
 ")
 }
@@ -82,6 +82,18 @@ make_wrapper <- function(parsed) {
   <<if (parsed$return_type != 'void') 'return ret;' else ''>>
 }
 ")
+}
+
+make_empty_value <- function(parsed) {
+  c_style_return <- make_ret_type(parsed, 'c_style')
+  if (c_style_return == 'void')
+    ""
+  else if (c_style_return == 'void*')
+    "return (void*) NULL;"
+  else if (c_style_return == "int")
+    "return 10;"
+  else
+    "return NULL;"
 }
 
 make_empty_declaration <- function(parsed) {
