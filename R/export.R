@@ -143,29 +143,26 @@ make_ret_type <- function(parsed, type = c("unchanged", "c_style", "rcpp")) {
 make_c_types <- function(types) {
   types <- ifelse(types == "torch::Tensor", "void*", types)
   types <- ifelse(types == "std::vector<torch::Tensor>", "void*", types)
+  types <- ifelse(types == "torch::optional<torch::Tensor>", "void*", types)
   types
 }
 
 make_lantern_type <- function(types) {
   types <- ifelse(types == "torch::Tensor", "Tensor", types)
   types <- ifelse(types == "std::vector<torch::Tensor>", "TensorList", types)
+  types <- ifelse(types == "torch::optional<torch::Tensor>", "OptionalTensorList", types)
   types
 }
 
 make_rcpp_type <- function(types) {
   types <- ifelse(types == "torch::Tensor", "torch::Tensor", types)
   types <- ifelse(types == "std::vector<torch::Tensor>", "torch::TensorList", types)
+  types <- ifelse(types == "torch::optional<torch::Tensor>", "torch::OptionalTensor", types)
   types
 }
 
 lantern_supported_types <- function() {
-  c("torch::Tensor", "std::vector<torch::Tensor>")
-}
-
-make_rcpp_type <- function(types) {
-  types <- ifelse(types == "torch::Tensor", "torch::Tensor", types)
-  types <- ifelse(types == "std::vector<torch::Tensor>", "torch::TensorList", types)
-  types
+  c("torch::Tensor", "std::vector<torch::Tensor>", "torch::optional<torch::Tensor>")
 }
 
 make_call <- function(parsed, type = c("unchanged", "lantern", "rcpp")) {
