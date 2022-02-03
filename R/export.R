@@ -150,7 +150,7 @@ make_c_types <- function(types) {
 make_lantern_type <- function(types) {
   types <- ifelse(types == "torch::Tensor", "Tensor", types)
   types <- ifelse(types == "std::vector<torch::Tensor>", "TensorList", types)
-  types <- ifelse(types == "torch::optional<torch::Tensor>", "OptionalTensorList", types)
+  types <- ifelse(types == "torch::optional<torch::Tensor>", "optional::Tensor", types)
   types
 }
 
