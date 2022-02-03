@@ -157,7 +157,7 @@ make_lantern_type <- function(types) {
 make_rcpp_type <- function(types) {
   types <- ifelse(types == "torch::Tensor", "torch::Tensor", types)
   types <- ifelse(types == "std::vector<torch::Tensor>", "torch::TensorList", types)
-  types <- ifelse(types == "torch::optional<torch::Tensor>", "torch::OptionalTensor", types)
+  types <- ifelse(types == "torch::optional<torch::Tensor>", "torch::optional::Tensor", types)
   types
 }
 
