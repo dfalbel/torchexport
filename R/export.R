@@ -20,7 +20,7 @@ export <- function(path = pkg_path()) {
     export_cpp <- exports_cpp(decls$error_handled)
     export_h <- exports_h(decls$empty_decl, decls$wrapper)
 
-    rcpp_parseds <- parseds[sapply(declarations$params, function(x) is.character(x) || isTRUE(x$rcpp) )]
+    rcpp_parseds <- parseds[sapply(declarations$params, function(x) is.character(x) || (!isFALSE(x$rcpp)) )]
     if (length(rcpp_parseds) > 0) {
       rcpp_decls <- lapply(rcpp_parseds, make_rcpp_declaration)
       export_rcpp <- exports_rcpp(rcpp_decls)
@@ -140,29 +140,22 @@ make_ret_type <- function(parsed, type = c("unchanged", "c_style", "rcpp")) {
     parsed$return_type
 }
 
-make_c_types <- function(types) {
-  types <- ifelse(types == "torch::Tensor", "void*", types)
-  types <- ifelse(types == "std::vector<torch::Tensor>", "void*", types)
-  types <- ifelse(types == "torch::optional<torch::Tensor>", "void*", types)
-  types
+make_type <- function(tpe) {
+  function(types) {
+    sapply(types, function(x) {
+      type <- types_env$supported_types[[x]][[tpe]]
+      if (is.null(type)) return(x)
+      type
+    })
+  }
 }
 
-make_lantern_type <- function(types) {
-  types <- ifelse(types == "torch::Tensor", "Tensor", types)
-  types <- ifelse(types == "std::vector<torch::Tensor>", "TensorList", types)
-  types <- ifelse(types == "torch::optional<torch::Tensor>", "optional::Tensor", types)
-  types
-}
-
-make_rcpp_type <- function(types) {
-  types <- ifelse(types == "torch::Tensor", "torch::Tensor", types)
-  types <- ifelse(types == "std::vector<torch::Tensor>", "torch::TensorList", types)
-  types <- ifelse(types == "torch::optional<torch::Tensor>", "torch::optional::Tensor", types)
-  types
-}
+make_c_types <- make_type("c")
+make_lantern_type <- make_type("lantern")
+make_rcpp_type <- make_type("rcpp")
 
 lantern_supported_types <- function() {
-  c("torch::Tensor", "std::vector<torch::Tensor>", "torch::optional<torch::Tensor>")
+  names(types_env$supported_types)
 }
 
 make_call <- function(parsed, type = c("unchanged", "lantern", "rcpp")) {
@@ -191,7 +184,7 @@ make_return <- function(parsed) {
 }
 
 make_raw <- function(parsed) {
-  if (parsed$return_type %in% c("torch::Tensor", "std::vector<torch::Tensor>")) {
+  if (parsed$return_type %in% lantern_supported_types()) {
     paste0("make_raw::", make_lantern_type(parsed$return_type))
   } else {
     ""
