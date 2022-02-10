@@ -8,17 +8,21 @@ get_src_files <- function() {
   src_files <- fs::dir_ls("csrc/src/")
 }
 
-types_file_name <- function() {
+types_file_name <- function(rcpp = FALSE) {
   name <- tolower(get_package_name())
+  if (rcpp) return(paste0(name, "_types.h"))
+
   paste0(name, "/", name, "_types.h")
 }
 
-types_file_include <- function() {
-  paste0('#include "', types_file_name(), '"')
+types_file_include <- function(rcpp = FALSE) {
+  paste0('#include "', types_file_name(rcpp), '"')
 }
 
-has_types_file <- function() {
-  fs::file_exists(fs::path("csrc/include/", types_file_name()))
+has_types_file <- function(rcpp = FALSE) {
+  base_path <- if (rcpp) "src/" else "csrc/include/"
+
+  fs::file_exists(fs::path(base_path, types_file_name(rcpp)))
 }
 
 get_declarations <- function() {

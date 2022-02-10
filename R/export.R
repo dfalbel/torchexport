@@ -23,8 +23,11 @@ export <- function(path = pkg_path()) {
     rcpp_parseds <- parseds[sapply(declarations$params, function(x) is.character(x) || (!isFALSE(x$rcpp)) )]
     if (length(rcpp_parseds) > 0) {
       rcpp_decls <- lapply(rcpp_parseds, make_rcpp_declaration)
+      rcpp_decls_h <- lapply(rcpp_parseds, make_rcpp_header)
       export_rcpp <- exports_rcpp(rcpp_decls)
+      export_rcpp_h <- exports_rcpp_h(rcpp_decls_h)
       readr::write_lines(export_rcpp, "src/exports.cpp")
+      readr::write_lines(export_rcpp_h, "src/exports.h")
     } else {
       try(
         fs::file_delete("src/exports.cpp")
@@ -61,6 +64,13 @@ make_rcpp_declaration <- function(parsed) {
   )
 }
 
+make_rcpp_header <- function(parsed) {
+  glue_code(
+"
+<<make_declaration(parsed, macro = '', prefix = 'rcpp_', type = 'rcpp')>>;
+"
+  )
+}
 
 make_error_handled <- function(parsed) {
   glue_code("
