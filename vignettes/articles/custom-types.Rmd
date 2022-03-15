@@ -13,16 +13,16 @@ knitr::opts_chunk$set(
 library(torchexport)
 ```
 
-When extending torch with C++, you might want your C++ function to return types that are not defined in [torch.h](https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/inst/include/torch_types.h#L659-L763) or that there no known automatic casting from and to raw pointers in [lantern/types.h](https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/lantern/include/lantern/types.h#L50-L113). torchexport can be extended to support custom types defined in packages given that you implement all the necessary casting:
+When extending torch with C++, you might want your C++ function to return types that are not defined in [torch.h](https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/inst/include/torch_types.h#L659-L763), or ones where no automatic casting from and to `raw` pointers has yet been implemented in [lantern/types.h](https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/lantern/include/lantern/types.h#L50-L113). `torchexport` can be extended to support custom types defined in user packages, provided that you implement all the necessary casting:
 
-- `frow_raw` and `make_raw` : In the `csrc` side you must implement how to covert your type to a `void*` and from `void*` to your custom type.
-- `Rcpp` type: In the Rcpp side you msut implement the casting between `void*` and a custom Rcpp type that can manage the memory pointed by this `void*`.
-- Rcpp type to -> `SEXP`: if you ever return this type to R (as opposed to only using it in Rcpp) you need to implement casting from the Rcpp custom type to a `SEXP`.
-- `SEXP` to Rcpp type: if you use this type as an argument in the R side, you must implement the casting from `SEXP` to your custom type.
+-   `frow_raw` and `make_raw` : On the `csrc` side, you must specify how your type is to be converted to a `void*` pointer, as well as how to convert from `void*` to your custom type.
+-   `Rcpp` type: On the Rcpp side ,you need to implement the casting between `void*` and a custom Rcpp type that can manage the memory pointed by this `void*`.
+-   Rcpp type to `SEXP`: if you ever return this type to R (as opposed to only using it in Rcpp) you need to implement casting from the Rcpp custom type to a `SEXP`.
+-   `SEXP` to Rcpp type: if you use this type as an argument on the R side, you must implement the casting from `SEXP` to your custom type.
 
 ## Example
 
-In this example we will implement the `tensor_pair` type that is just an alias for `std::tuple<torch::Tensor, torch::Tensor>`. This type doesn't is not implemented in torch, thus we need to implement our custom type. This type was needed in the [torchsparse](https://github.com/mlverse/torchsparse) package hence the names of the files will sometimes start with `torchsparse_`.
+In this example we will implement the `tensor_pair` type, an alias for `std::tuple<torch::Tensor, torch::Tensor>`. This type is not implemented in `torch`, thus we need to implement it ourselves. In fact, this type was needed in the [torchsparse](https://github.com/mlverse/torchsparse) package; that's why the names of the files will sometimes start with `torchsparse_`.
 
 ### The `csrc` side
 
@@ -30,7 +30,7 @@ First we will create a file called `torchparse_types.h` in the `csrc/include/tor
 
 For example, it can look like this:
 
-```cpp
+``` cpp
 #include <torch/torch.h>
 
 // declares the alias, but could also be a `class CustomType`.
@@ -38,7 +38,7 @@ using tensor_pair = std::tuple<torch::Tensor,torch::Tensor>;
 
 // In this namespace we declare the function that creates a `void*`
 // from an instance of your type. This `void*` pointer must own all
-// of it's memory.
+// its memory.
 namespace make_raw {
   void* TensorPair (const tensor_pair& x);
 }
@@ -51,12 +51,11 @@ namespace from_raw {
 }
 ```
 
-Now that we declared the type and it's casting functions, we will implement these functions. The name of the file doesn't matter here, but it's nice to use `torchsparse_types.cpp`. This file lives in `csrc/src`.
-Don't forget to add it to the `CMakeLists.txt` file so it also gets compiled.
+Now that we declared the type and it's casting functions, we will implement these functions. The name of the file doesn't matter here, but it's nice to use `torchsparse_types.cpp`. This file lives in `csrc/src`. Don't forget to add it to the `CMakeLists.txt` file so it also gets compiled.
 
 The implementation of `make_raw::TensorPair` and `from_raw::TensorPair` look like this:
 
-```cpp
+``` cpp
 #include <torch/torch.h>
 #include "torchsparse/torchsparse_types.h"
 #include <torchsparse/sparse.h>
@@ -72,7 +71,7 @@ void* TensorPair (const tensor_pair& x) {
 }
 }
 
-// This simply tells the compiler to consider that `void*` a pointer to
+// This simply tells the compiler to consider that `void*` is a pointer to
 // `tensor_pair` and then returns this reference.
 namespace from_raw {
 tensor_pair& TensorPair (void* x) {
@@ -83,18 +82,18 @@ tensor_pair& TensorPair (void* x) {
 // ---- there's more.
 ```
 
-Additionally in this file we will implement functions that will allow us to free the memory pointed by this pointer as well as tools to help us cast this type to something that we can return to R.
+Additionally in this file we will implement functions that will allow us to free the memory pointed by this pointer, as well as tools to help us cast this type to something that we can return to R.
 
-```cpp
-// Takes a void* pointer and deletes the memory pointed by it.
-// First needs to cast to the correct type.
+``` cpp
+// Takes a void* pointer and deletes the memory it points to.
+// First need to cast to the correct type.
 // [[torch::export]]
 void delete_tensor_pair(void* x) {
   delete reinterpret_cast<tensor_pair*>(x);
 }
 
-// Allows us to get a Tensor out of this type. This will allow us to
-// conver this type into a list of tensors when coverting to an R object.
+// Extract a single Tensor from this type. This will allow us to
+// convert this type into a list of tensors to pass to R.
 
 // [[torch::export]]
 torch::Tensor tensor_pair_get_first(tensor_pair x) {
@@ -107,34 +106,32 @@ torch::Tensor tensor_pair_get_second(tensor_pair x) {
 }
 ```
 
-Now we are done with the type implementation in the `csrc` side.
-We can now implement a function that uses this type. For example:
+We are done with the type implementation on the `csrc` side. We can now implement a function that uses this type. For example:
 
-```cpp
+``` cpp
 // [[torch::export(register_types=c("tensor_pair", "TensorPair", "void*", "torchsparse::tensor_pair"))]]
 tensor_pair sparse_relabel(torch::Tensor col, torch::Tensor idx) {
   return relabel(col, idx);
 }
 ```
 
-Note the arguments in the `// [[torch::export]]` special coment.
-Here we are telling the torchexport generator when seeing the type **`tensor_pair`** (first argument) use:
+Note the arguments in the `// [[torch::export]]` special comment. Here we are telling `torchexport` what to generate. Namely, on encountering the type **`tensor_pair`** (first argument), it should:
 
-- `make_raw::TensorPair` and `from_raw::TensorPair` to cast between void* and `tensor_pair`. (`TensorPair` is the second argument)
-- use `void*` as C type. In general it will always be `void*` here, unless you can cast to other C type and still re-create the object. (`void*` is the third argument)
-- `torchsparse::tensor_pair`: This is the name of the Rcpp type that will be used by torchexport. We still din't implement it yet and that's our next step.
+-   Use `make_raw::TensorPair` and `from_raw::TensorPair` to cast between `void*` and `tensor_pair`. (`TensorPair` is the second argument.)
+-   Use `void*` as the C type. In general it will always be `void*` here, unless you can cast to another C type and still re-create the object. (`void*` is the third argument.)
+-   Use `torchsparse::tensor_pair` as the Rcpp type. (`torchsparse::tensor_pair` is the third argument.) This we haven't implemented yet; it'll be our next step.
 
 **Note**: You only need to register the type once, for a single function that uses it. If we want to export other functions that return `tensor_pair` we won't need to register the type again in the `[[torch::export]]` comment.
 
-We can now `cmake --build . --target install --parallel 8` to compile the `csrc` library and everything should go fine.
+We can now `cmake --build . --target install --parallel 8` to compile the `csrc` library, and everything should go fine.
 
 ### The `Rcpp` side
 
-We can now go to the Rcpp side to implement the custom Rcpp type that will hold the `void*` pointer returned by the csrc side, take care of that memory and cast to `SEXP` when needed.
+Now, on to the Rcpp side. We need to implement the custom Rcpp type that will hold the `void*` pointer returned from the `csrc` side, take care of the corresponding memory, and cast to `SEXP` when needed.
 
 First we declare this type in `src/torchsparse_types.h`:
 
-```cpp
+``` cpp
 #pragma once
 #include <torch.h>
 
@@ -155,10 +152,9 @@ public:
 }
 ```
 
-The type is now declared, we can now implement it's member functions in
-`src/torchsparse_types.cpp`:
+The type having been declared, we can now implement its member functions in `src/torchsparse_types.cpp`:
 
-```cpp
+``` cpp
 #include <Rcpp.h>
 #include "torchsparse_types.h"
 #include "exports.h"
@@ -177,17 +173,17 @@ tensor_pair::operator SEXP () const {
   return out;
 }
 
-// initializes the `ptr` slot and **very important** register the custom
-// deleter `rcpp_delete_tensor_pair` that will free the pointers memory
-// once `ptr` is gone and hence once `torchsparse::tensor_pair` instance
-// is gone.
+// initialize the `ptr` slot and **very important** register the custom
+// deleter `rcpp_delete_tensor_pair` that will free the pointer's memory
+// once `ptr` is gone (and hence once the `torchsparse::tensor_pair` instance
+// is gone).
 tensor_pair::tensor_pair (void* x) : ptr(x, rcpp_delete_tensor_pair) {};
 
 }
 ```
 
-You should now be able to `devtools::load_all()` and call `rcpp_sparse_relabel()`. This function will return a list with two torch Tensors.
+You should now be able to `devtools::load_all()` and call `rcpp_sparse_relabel()`. This function will return a list with two `torch` Tensors.
 
-In this case we din't need to implement casting from `SEXP` to the Rcpp type. In this case you would need to implement the `tensor_pair::tensor_pair (SEXP x)` constructor and probably implement a function similar to `rcpp_tensor_pair_get_first`, but doing the other way around, ie. taking two torch Tensors and returning a `tensor_pair`.
+In this case, we don't need to provide functionality for casting from a `SEXP` to the Rcpp type. If we had to, we'd have to implement the `tensor_pair::tensor_pair (SEXP x)` constructor, and probably have a function similar to `rcpp_tensor_pair_get_first`, but doing things the other way around: i.e., taking two `torch` Tensors and returning a `tensor_pair`.
 
-Finally, this tutorial is more like notes from when I was implementing that functionality than a 'tutorial'. Please open an issue if something is not clear and we will be very happy to help!
+Finally, this tutorial is more like a set of notes (from when I was implementing that functionality in `torchsparse`) than a "tutorial". Please open an issue if something is not clear, and we will be very happy to help!
