@@ -79,20 +79,20 @@
     
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/mlverse/torchexport" class="external-link">torchexport</a></span><span class="op">)</span></code></pre></div>
-<p>When extending torch with C++, you might want your C++ function to return types that are not defined in <a href="https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/inst/include/torch_types.h#L659-L763" class="external-link">torch.h</a> or that there no known automatic casting from and to raw pointers in <a href="https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/lantern/include/lantern/types.h#L50-L113" class="external-link">lantern/types.h</a>. torchexport can be extended to support custom types defined in packages given that you implement all the necessary casting:</p>
+<p>When extending torch with C++, you might want your C++ function to return types that are not defined in <a href="https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/inst/include/torch_types.h#L659-L763" class="external-link">torch.h</a>, or ones where no automatic casting from and to <code>raw</code> pointers has yet been implemented in <a href="https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/lantern/include/lantern/types.h#L50-L113" class="external-link">lantern/types.h</a>. <code>torchexport</code> can be extended to support custom types defined in user packages, provided that you implement all the necessary casting:</p>
 <ul>
 <li>
-<code>frow_raw</code> and <code>make_raw</code> : In the <code>csrc</code> side you must implement how to covert your type to a <code>void*</code> and from <code>void*</code> to your custom type.</li>
+<code>frow_raw</code> and <code>make_raw</code> : On the <code>csrc</code> side, you must specify how your type is to be converted to a <code>void*</code> pointer, as well as how to convert from <code>void*</code> to your custom type.</li>
 <li>
-<code>Rcpp</code> type: In the Rcpp side you msut implement the casting between <code>void*</code> and a custom Rcpp type that can manage the memory pointed by this <code>void*</code>.</li>
-<li>Rcpp type to -&gt; <code>SEXP</code>: if you ever return this type to R (as opposed to only using it in Rcpp) you need to implement casting from the Rcpp custom type to a <code>SEXP</code>.</li>
+<code>Rcpp</code> type: On the Rcpp side ,you need to implement the casting between <code>void*</code> and a custom Rcpp type that can manage the memory pointed by this <code>void*</code>.</li>
+<li>Rcpp type to <code>SEXP</code>: if you ever return this type to R (as opposed to only using it in Rcpp) you need to implement casting from the Rcpp custom type to a <code>SEXP</code>.</li>
 <li>
-<code>SEXP</code> to Rcpp type: if you use this type as an argument in the R side, you must implement the casting from <code>SEXP</code> to your custom type.</li>
+<code>SEXP</code> to Rcpp type: if you use this type as an argument on the R side, you must implement the casting from <code>SEXP</code> to your custom type.</li>
 </ul>
 <div class="section level2">
 <h2 id="example">Example<a class="anchor" aria-label="anchor" href="#example"></a>
 </h2>
-<p>In this example we will implement the <code>tensor_pair</code> type that is just an alias for <code>std::tuple&lt;torch::Tensor, torch::Tensor&gt;</code>. This type doesn’t is not implemented in torch, thus we need to implement our custom type. This type was needed in the <a href="https://github.com/mlverse/torchsparse" class="external-link">torchsparse</a> package hence the names of the files will sometimes start with <code>torchsparse_</code>.</p>
+<p>In this example we will implement the <code>tensor_pair</code> type, an alias for <code>std::tuple&lt;torch::Tensor, torch::Tensor&gt;</code>. This type is not implemented in <code>torch</code>, thus we need to implement it ourselves. In fact, this type was needed in the <a href="https://github.com/mlverse/torchsparse" class="external-link">torchsparse</a> package; that’s why the names of the files will sometimes start with <code>torchsparse_</code>.</p>
 <div class="section level3">
 <h3 id="the-csrc-side">The <code>csrc</code> side<a class="anchor" aria-label="anchor" href="#the-csrc-side"></a>
 </h3>
@@ -105,7 +105,7 @@
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// In this namespace we declare the function that creates a `void*`</span></span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// from an instance of your type. This `void*` pointer must own all</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// of it's memory.</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// its memory.</span></span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> make_raw <span class="op">{</span></span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">void</span><span class="op">*</span> TensorPair <span class="op">(</span><span class="at">const</span> tensor_pair<span class="op">&amp;</span> x<span class="op">);</span></span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
@@ -133,7 +133,7 @@
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
 <span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
 <span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">// This simply tells the compiler to consider that `void*` a pointer to</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co">// This simply tells the compiler to consider that `void*` is a pointer to</span></span>
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="co">// `tensor_pair` and then returns this reference.</span></span>
 <span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> from_raw <span class="op">{</span></span>
 <span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>tensor_pair<span class="op">&amp;</span> TensorPair <span class="op">(</span><span class="dt">void</span><span class="op">*</span> x<span class="op">)</span> <span class="op">{</span></span>
@@ -142,16 +142,16 @@
 <span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
 <span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="co">// ---- there's more.</span></span></code></pre></div>
-<p>Additionally in this file we will implement functions that will allow us to free the memory pointed by this pointer as well as tools to help us cast this type to something that we can return to R.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Takes a void* pointer and deletes the memory pointed by it.</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">// First needs to cast to the correct type.</span></span>
+<p>Additionally in this file we will implement functions that will allow us to free the memory pointed by this pointer, as well as tools to help us cast this type to something that we can return to R.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Takes a void* pointer and deletes the memory it points to.</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">// First need to cast to the correct type.</span></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">// [[torch::export]]</span></span>
 <span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> delete_tensor_pair<span class="op">(</span><span class="dt">void</span><span class="op">*</span> x<span class="op">)</span> <span class="op">{</span></span>
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">delete</span> <span class="kw">reinterpret_cast</span><span class="op">&lt;</span>tensor_pair<span class="op">*&gt;(</span>x<span class="op">);</span></span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
 <span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Allows us to get a Tensor out of this type. This will allow us to</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">// conver this type into a list of tensors when coverting to an R object.</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Extract a single Tensor from this type. This will allow us to</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">// convert this type into a list of tensors to pass to R.</span></span>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">// [[torch::export]]</span></span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>torch<span class="op">::</span>Tensor tensor_pair_get_first<span class="op">(</span>tensor_pair x<span class="op">)</span> <span class="op">{</span></span>
@@ -162,26 +162,24 @@
 <span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>torch<span class="op">::</span>Tensor tensor_pair_get_second<span class="op">(</span>tensor_pair x<span class="op">)</span> <span class="op">{</span></span>
 <span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="bu">std::</span>get<span class="op">&lt;</span><span class="dv">1</span><span class="op">&gt;(</span>x<span class="op">);</span></span>
 <span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Now we are done with the type implementation in the <code>csrc</code> side. We can now implement a function that uses this type. For example:</p>
+<p>We are done with the type implementation on the <code>csrc</code> side. We can now implement a function that uses this type. For example:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// [[torch::export(register_types=c("tensor_pair", "TensorPair", "void*", "torchsparse::tensor_pair"))]]</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>tensor_pair sparse_relabel<span class="op">(</span>torch<span class="op">::</span>Tensor col<span class="op">,</span> torch<span class="op">::</span>Tensor idx<span class="op">)</span> <span class="op">{</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> relabel<span class="op">(</span>col<span class="op">,</span> idx<span class="op">);</span></span>
 <span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>Note the arguments in the <code>// [[torch::export]]</code> special coment. Here we are telling the torchexport generator when seeing the type <strong><code>tensor_pair</code></strong> (first argument) use:</p>
+<p>Note the arguments in the <code>// [[torch::export]]</code> special comment. Here we are telling <code>torchexport</code> what to generate. Namely, on encountering the type <strong><code>tensor_pair</code></strong> (first argument), it should:</p>
 <ul>
-<li>
-<code>make_raw::TensorPair</code> and <code>from_raw::TensorPair</code> to cast between void* and <code>tensor_pair</code>. (<code>TensorPair</code> is the second argument)</li>
-<li>use <code>void*</code> as C type. In general it will always be <code>void*</code> here, unless you can cast to other C type and still re-create the object. (<code>void*</code> is the third argument)</li>
-<li>
-<code>torchsparse::tensor_pair</code>: This is the name of the Rcpp type that will be used by torchexport. We still din’t implement it yet and that’s our next step.</li>
+<li>Use <code>make_raw::TensorPair</code> and <code>from_raw::TensorPair</code> to cast between <code>void*</code> and <code>tensor_pair</code>. (<code>TensorPair</code> is the second argument.)</li>
+<li>Use <code>void*</code> as the C type. In general it will always be <code>void*</code> here, unless you can cast to another C type and still re-create the object. (<code>void*</code> is the third argument.)</li>
+<li>Use <code>torchsparse::tensor_pair</code> as the Rcpp type. (<code>torchsparse::tensor_pair</code> is the third argument.) This we haven’t implemented yet; it’ll be our next step.</li>
 </ul>
 <p><strong>Note</strong>: You only need to register the type once, for a single function that uses it. If we want to export other functions that return <code>tensor_pair</code> we won’t need to register the type again in the <code>[[torch::export]]</code> comment.</p>
-<p>We can now <code>cmake --build . --target install --parallel 8</code> to compile the <code>csrc</code> library and everything should go fine.</p>
+<p>We can now <code>cmake --build . --target install --parallel 8</code> to compile the <code>csrc</code> library, and everything should go fine.</p>
 </div>
 <div class="section level3">
 <h3 id="the-rcpp-side">The <code>Rcpp</code> side<a class="anchor" aria-label="anchor" href="#the-rcpp-side"></a>
 </h3>
-<p>We can now go to the Rcpp side to implement the custom Rcpp type that will hold the <code>void*</code> pointer returned by the csrc side, take care of that memory and cast to <code>SEXP</code> when needed.</p>
+<p>Now, on to the Rcpp side. We need to implement the custom Rcpp type that will hold the <code>void*</code> pointer returned from the <code>csrc</code> side, take care of the corresponding memory, and cast to <code>SEXP</code> when needed.</p>
 <p>First we declare this type in <code>src/torchsparse_types.h</code>:</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#pragma once</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;torch.h&gt;</span></span>
@@ -201,7 +199,7 @@
 <span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
 <span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>The type is now declared, we can now implement it’s member functions in <code>src/torchsparse_types.cpp</code>:</p>
+<p>The type having been declared, we can now implement its member functions in <code>src/torchsparse_types.cpp</code>:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;Rcpp.h&gt;</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">"torchsparse_types.h"</span></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">"exports.h"</span></span>
@@ -220,16 +218,16 @@
 <span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> out<span class="op">;</span></span>
 <span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
 <span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="co">// initializes the `ptr` slot and **very important** register the custom</span></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co">// deleter `rcpp_delete_tensor_pair` that will free the pointers memory</span></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="co">// once `ptr` is gone and hence once `torchsparse::tensor_pair` instance</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="co">// is gone.</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="co">// initialize the `ptr` slot and **very important** register the custom</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co">// deleter `rcpp_delete_tensor_pair` that will free the pointer's memory</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="co">// once `ptr` is gone (and hence once the `torchsparse::tensor_pair` instance</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="co">// is gone).</span></span>
 <span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>tensor_pair<span class="op">::</span>tensor_pair <span class="op">(</span><span class="dt">void</span><span class="op">*</span> x<span class="op">)</span> <span class="op">:</span> ptr<span class="op">(</span>x<span class="op">,</span> rcpp_delete_tensor_pair<span class="op">)</span> <span class="op">{};</span></span>
 <span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<p>You should now be able to <code>devtools::load_all()</code> and call <code>rcpp_sparse_relabel()</code>. This function will return a list with two torch Tensors.</p>
-<p>In this case we din’t need to implement casting from <code>SEXP</code> to the Rcpp type. In this case you would need to implement the <code>tensor_pair::tensor_pair (SEXP x)</code> constructor and probably implement a function similar to <code>rcpp_tensor_pair_get_first</code>, but doing the other way around, ie. taking two torch Tensors and returning a <code>tensor_pair</code>.</p>
-<p>Finally, this tutorial is more like notes from when I was implementing that functionality than a ‘tutorial’. Please open an issue if something is not clear and we will be very happy to help!</p>
+<p>You should now be able to <code>devtools::load_all()</code> and call <code>rcpp_sparse_relabel()</code>. This function will return a list with two <code>torch</code> Tensors.</p>
+<p>In this case, we don’t need to provide functionality for casting from a <code>SEXP</code> to the Rcpp type. If we had to, we’d have to implement the <code>tensor_pair::tensor_pair (SEXP x)</code> constructor, and probably have a function similar to <code>rcpp_tensor_pair_get_first</code>, but doing things the other way around: i.e., taking two <code>torch</code> Tensors and returning a <code>tensor_pair</code>.</p>
+<p>Finally, this tutorial is more like a set of notes (from when I was implementing that functionality in <code>torchsparse</code>) than a “tutorial”. Please open an issue if something is not clear, and we will be very happy to help!</p>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc"><h2>On this page</h2>
