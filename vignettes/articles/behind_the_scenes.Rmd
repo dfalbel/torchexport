@@ -1,0 +1,34 @@
+---
+title: "torchexport: Behind the scenes"
+output:
+  html_document: default
+  pdf_document: default
+date: '2022-04-07'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## So what do all those generated functions do?
+
+When you use `torchexport` to help with the infrastructure necessary in creating `torch` extensions, you implement and annotate just a single function, in a single file. What happens, though, is that a lot of other files get updated, as well. In case you just *have* to know what these are and what is their purpose, this short piece of documentation is for you.
+
+## Call stack by example
+
+The table below illustrates what got generated when an example function, `sparse_ptr2ind()`, was added to the `torchsparse` package. The package in question enables the use of PyTorch extension, [PyTorch-Sparse](https://github.com/rusty1s/pytorch_sparse), from R `torch`.
+
+The only file modified manually was `csrc/src/torchsparse.cpp` in `csrc/src/torchsparse.cpp` . There, we find the function that actually calls into PyTorch-Sparse (its C++ code, that is). At the bottom we have the function, `rcpp_sparse_ptr2ind()`, an R user would call. In-between, a lot is going on. In Rcpp as well as `torchsparse`'s C++ layer, issues of type conversion, memory management, and exception handling have to be taken care of.
+
+##  
+
+| Domain           | Signature                                                              | Types                                                | file                               | purpose                                                        |
+|--------------|----------------------|--------------|--------------|---------------|
+| PyTorch-Sparse   |                                                                        |                                                      |                                    |                                                                |
+| torchsparse cpp  | torch::Tensor sparse_ptr2ind (torch::Tensor ptr, int64_t E) {...}      | torch::Tensor -\> torch::Tensor                      | csrc/src/torchsparse.cpp           | call into PyTorch-Sparse                                       |
+| torchsparse cpp  | TORCHSPARSE_API void\* \_sparse_ptr2ind (void\* ptr, int64_t E) {...}  | void\* -\> torch::Tensor -\> call \^ -\> void\*      | csrc/src/exports.cpp               | type conversions; memory management; exception handling (cpp)  |
+| torchsparse Rcpp | inline void\* sparse_ptr2ind (void\* ptr, int64_t E) {...}             | void\* -\> call \^ -\> void\*                        | csrc/include/torchsparse/exports.h | type conversions; memory management; exception handling (Rcpp) |
+| torchsparse Rcpp | torch::Tensor rcpp_sparse_ptr2ind (torch::Tensor ptr, int64_t E) {...} | torch::Tensor -\> void\* - call \^ -\> torch::Tensor | src/exports.cpp                    | interface R -\> pytorch_sparse                                 |
+| torchsparse R    | rcpp_sparse_ptr2ind \<- function(ptr, E) {}                            | torch_tensor -\> call into Rcpp-\> torch::Tensor     | R/RcppExports.R                    | user-interfacing R function                                    |
+
+In case you'd like more details, feel free to look into the files referred and see what the functions are doing :-).
