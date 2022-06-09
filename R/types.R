@@ -26,6 +26,12 @@ export_type(
   "torch::TensorList"
 )
 export_type(
+  "torch::TensorList",
+  "TensorList",
+  "void*",
+  "torch::TensorList"
+)
+export_type(
   "torch::optional<torch::Tensor>",
   "optional::Tensor",
   "void*",
