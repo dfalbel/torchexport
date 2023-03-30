@@ -37,4 +37,10 @@ export_type(
   "void*",
   "torch::optional::Tensor"
 )
+export_type(
+  "std::string",
+  "string",
+  "void*",
+  "torch::string"
+)
 
