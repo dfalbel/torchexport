@@ -16,6 +16,8 @@ library(torchexport)
 When extending torch with C++, you might want your C++ function to return types that are not defined in [torch.h](https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/inst/include/torch_types.h#L659-L763), or ones where no automatic casting from and to `raw` pointers has yet been implemented in [lantern/types.h](https://github.com/mlverse/torch/blob/93b250ae48911f572d5477e8f52b19c40a5da86c/lantern/include/lantern/types.h#L50-L113). `torchexport` can be extended to support custom types defined in user packages, provided that you implement all the necessary casting:
 
 -   `frow_raw` and `make_raw` : On the `csrc` side, you must specify how your type is to be converted to a `void*` pointer, as well as how to convert from `void*` to your custom type.
+    Note that for C structs, you can also directly return the object without casting them to a `void*`. In such cases you can define these types in the `csrc/include/<package>/common.h` file.
+    If this file exists, you will also have access to these types on the Rcpp side.
 -   `Rcpp` type: On the Rcpp side ,you need to implement the casting between `void*` and a custom Rcpp type that can manage the memory pointed by this `void*`.
 -   Rcpp type to `SEXP`: if you ever return this type to R (as opposed to only using it in Rcpp) you need to implement casting from the Rcpp custom type to a `SEXP`.
 -   `SEXP` to Rcpp type: if you use this type as an argument on the R side, you must implement the casting from `SEXP` to your custom type.
